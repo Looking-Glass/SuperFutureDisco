@@ -52,7 +52,7 @@ public class GameManager : MonoBehaviour {
 
 	public SongData [] songs;
 
-	InputDevice inputDevice;
+	public InputDevice inputDevice {get; private set;}
 
 	public float sphereTimeToShipFromBackOfScreen;
 
@@ -112,6 +112,7 @@ public class GameManager : MonoBehaviour {
 	}
 
 	void Update(){
+		inputDevice = InputManager.ActiveDevice;
 		if(StateUpdate != null){
 			StateUpdate();
 		}
@@ -129,7 +130,7 @@ public class GameManager : MonoBehaviour {
 	}
 
 	void titleUpdate(){
-		inputDevice = InputManager.ActiveDevice;
+		
 		if(Input.GetKeyDown(KeyCode.Space) || inputDevice.Action1.WasPressed || inputDevice.Command.WasPressed){
 			GameObject.Find("BottomPart").transform.SetX(-15);
 			setState(GameState.Menu);
@@ -138,7 +139,6 @@ public class GameManager : MonoBehaviour {
 	}
 
 	void menuUpdate(){
-		inputDevice = InputManager.ActiveDevice;
 		if(Input.GetKeyDown(KeyCode.Space) || inputDevice.Action1.WasPressed || inputDevice.Command.WasPressed){
 			setState(GameState.Playing);
 		}
@@ -300,15 +300,3 @@ public class GameManager : MonoBehaviour {
 }
 
 public enum GameState {Title,Menu,Playing,Result}
-
-[System.Serializable]
-public struct SongData{
-
-	public Koreography koreography;
-	public AudioClip audioClip;
-	public MovieTexture movie;
-	public Sprite image;
-	public string songName;
-	public int highScore;
-	public int highHitPercent;
-}

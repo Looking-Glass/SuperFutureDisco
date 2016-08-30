@@ -18,7 +18,6 @@ public class Player : MonoBehaviour {
 
 	float rotSpeed = 240;
 
-	InputDevice inputDevice;
 
 	public int currentColor {get; private set;}
 	public Gradient trailGrad;
@@ -54,7 +53,6 @@ public class Player : MonoBehaviour {
 	
 	// Update is called once per frame
 	void Update () {
-		inputDevice = InputManager.ActiveDevice;
 		if(StateUpdate != null){
 			StateUpdate();
 		}
@@ -124,36 +122,36 @@ public class Player : MonoBehaviour {
 
 
 		// Rotate target object with left stick.
-		if(inputDevice.LeftStickX.Value < -1 * stickThreshold || Input.GetKey(KeyCode.LeftArrow) || inputDevice.DPadRight.WasPressed){
-			if(inputDevice.LeftStickX.Value==0){
+		if(GameManager.instance.inputDevice.LeftStickX.Value < -1 * stickThreshold || Input.GetKey(KeyCode.LeftArrow) || GameManager.instance.inputDevice.DPadLeft.WasPressed){
+			if(GameManager.instance.inputDevice.LeftStickX.Value==0){
 				transform.ShiftX(-1 * speed * Time.deltaTime);
 			} else {
-				transform.ShiftX(inputDevice.LeftStickX.Value * speed * Time.deltaTime);
+				transform.ShiftX(GameManager.instance.inputDevice.LeftStickX.Value * speed * Time.deltaTime);
 			}
 			aimLeft();
-		} else if(inputDevice.LeftStickX.Value > stickThreshold || Input.GetKey(KeyCode.RightArrow) || inputDevice.DPadLeft.WasPressed){
-			if(inputDevice.LeftStickX.Value==0){
+		} else if(GameManager.instance.inputDevice.LeftStickX.Value > stickThreshold || Input.GetKey(KeyCode.RightArrow) || GameManager.instance.inputDevice.DPadRight.WasPressed){
+			if(GameManager.instance.inputDevice.LeftStickX.Value==0){
 				transform.ShiftX(1 * speed * Time.deltaTime);
 			} else {
-				transform.ShiftX(inputDevice.LeftStickX.Value * speed * Time.deltaTime);
+				transform.ShiftX(GameManager.instance.inputDevice.LeftStickX.Value * speed * Time.deltaTime);
 			}
 			aimRight();
 		} else {
 			aimHorizCenter();
 		}
 
-		if(inputDevice.LeftStickY.Value > stickThreshold || Input.GetKey(KeyCode.UpArrow) || inputDevice.DPadUp.WasPressed){
-			if(inputDevice.LeftStickY.Value==0){
+		if(GameManager.instance.inputDevice.LeftStickY.Value > stickThreshold || Input.GetKey(KeyCode.UpArrow) || GameManager.instance.inputDevice.DPadUp.WasPressed){
+			if(GameManager.instance.inputDevice.LeftStickY.Value==0){
 				transform.ShiftY(1 * speed * Time.deltaTime);
 			} else {
-				transform.ShiftY(inputDevice.LeftStickY.Value * speed * Time.deltaTime);
+				transform.ShiftY(GameManager.instance.inputDevice.LeftStickY.Value * speed * Time.deltaTime);
 			}
 			aimUp();
-		} else if (inputDevice.LeftStickY.Value < -1 * stickThreshold || Input.GetKey(KeyCode.DownArrow)  || inputDevice.DPadDown.WasPressed){
-			if(inputDevice.LeftStickY.Value==0){
+		} else if (GameManager.instance.inputDevice.LeftStickY.Value < -1 * stickThreshold || Input.GetKey(KeyCode.DownArrow)  || GameManager.instance.inputDevice.DPadDown.WasPressed){
+			if(GameManager.instance.inputDevice.LeftStickY.Value==0){
 				transform.ShiftY(-1 * speed * Time.deltaTime);
 			} else {
-				transform.ShiftY(inputDevice.LeftStickY.Value * speed * Time.deltaTime);
+				transform.ShiftY(GameManager.instance.inputDevice.LeftStickY.Value * speed * Time.deltaTime);
 			}
 			aimDown();
 		} else {
@@ -163,8 +161,8 @@ public class Player : MonoBehaviour {
 		}
 
 		// Get two colors based on two action buttons.
-//		var color1 = inputDevice.Action1.IsPressed ? Color.red : Color.white;
-//		var color2 = inputDevice.Action2.IsPressed ? Color.green : Color.white;
+//		var color1 = GameManager.instance.inputDevice.Action1.IsPressed ? Color.red : Color.white;
+//		var color2 = GameManager.instance.inputDevice.Action2.IsPressed ? Color.green : Color.white;
 //
 //		// Blend the two colors together to color the object.
 //		GetComponent<Renderer>().material.color = Color.Lerp( color1, color2, 0.5f );
@@ -178,7 +176,7 @@ public class Player : MonoBehaviour {
 
 	void bounceToBeat(BeatEvent be){
 		Debug.Log("BOUNCE GET");
-		//if(inputDevice.LeftStickX > -1 * stickThreshold)
+		//if(GameManager.instance.inputDevice.LeftStickX > -1 * stickThreshold)
 		StartCoroutine("bounce");
 	}
 
@@ -293,19 +291,19 @@ public class Player : MonoBehaviour {
 	}
 
 	void colorControls(){
-		if(Input.GetKeyDown(KeyCode.Q) || inputDevice.Action2.WasPressed){
+		if(Input.GetKeyDown(KeyCode.Q) || GameManager.instance.inputDevice.Action2.WasPressed){
 			setColor(0);
 		}
 
-		if(Input.GetKeyDown(KeyCode.W) || inputDevice.Action4.WasPressed){
+		if(Input.GetKeyDown(KeyCode.W) || GameManager.instance.inputDevice.Action4.WasPressed){
 			setColor(1);
 		}
 
-		if(Input.GetKeyDown(KeyCode.E) || inputDevice.Action3.WasPressed){
+		if(Input.GetKeyDown(KeyCode.E) || GameManager.instance.inputDevice.Action3.WasPressed){
 			setColor(2);
 		}
 
-		if(Input.GetKeyDown(KeyCode.A) || inputDevice.LeftBumper.WasPressed || inputDevice.LeftTrigger.WasPressed){
+		if(Input.GetKeyDown(KeyCode.A) || GameManager.instance.inputDevice.LeftBumper.WasPressed || GameManager.instance.inputDevice.LeftTrigger.WasPressed){
 			Debug.Log("bumper?");
 			if(currentColor==0){
 				setColor(GameManager.instance.colors.Count-1);
@@ -314,7 +312,7 @@ public class Player : MonoBehaviour {
 			}
 		} 
 
-		if(Input.GetKeyDown(KeyCode.D) || inputDevice.RightBumper.WasPressed || inputDevice.RightTrigger.WasPressed){
+		if(Input.GetKeyDown(KeyCode.D) || GameManager.instance.inputDevice.RightBumper.WasPressed || GameManager.instance.inputDevice.RightTrigger.WasPressed){
 			if(currentColor==GameManager.instance.colors.Count-1){
 				setColor(0);
 			} else {
@@ -322,7 +320,7 @@ public class Player : MonoBehaviour {
 			}
 		}
 
-		if(Input.GetKeyDown(KeyCode.Space) || inputDevice.Action1.WasPressed){
+		if(Input.GetKeyDown(KeyCode.Space) || GameManager.instance.inputDevice.Action1.WasPressed){
 			EventManager.instance.Raise(new TryStartPartyEvent());
 		}
 

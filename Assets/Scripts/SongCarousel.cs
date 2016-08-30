@@ -55,11 +55,12 @@ public class SongCarousel : MonoBehaviour {
 		int counter =0;
 		foreach(SongSelectionUI song in songUIs){
 			startPositions[counter] = song.transform.localPosition;
+			Debug.Log(song.transform.localScale);
 			startScales[counter] = song.transform.localScale;
-			Debug.Log("POS"+ counter + " "+ startPositions[counter]);
+			Debug.Log("SCALE"+ counter + " "+ startScales[counter]);
 
 
-			startScales[counter] = song.transform.parent.localScale;
+			startScales[counter] = song.transform.localScale;
 
 			counter++;
 		}
@@ -116,7 +117,9 @@ public class SongCarousel : MonoBehaviour {
 		for(int i =1; i< songUIs.Count; i++){
 //			Debug.Log(i);
 
-
+			if(songUIs[i].name=="SongSelectionCenter"){
+				Debug.Log("we gonna send scales "+startScales[songUIs[i].currentCarouselPosition]+" "+startScales[songUIs[i].currentCarouselPosition-1]);
+			}
 			songUIs[i].startMoving(
 				
 				startPositions[songUIs[i].currentCarouselPosition],
@@ -130,20 +133,17 @@ public class SongCarousel : MonoBehaviour {
 
 			if(songUIs[i].currentCarouselPosition == songUIs.Count-2){
 				lastSong = songUIs[i].positionInSongList;
-				Debug.Log(lastSong);
 			}
 
 		}
-
+		//warp the leftmost one to the right, off screen
 		SongSelectionUI temp = songUIs[0];
 		songUIs.RemoveAt(0);
 		songUIs.Add(temp);
 		songUIs[songUIs.Count-1].transform.position = startPositions[startPositions.Length-1];
 		songUIs[songUIs.Count-1].currentCarouselPosition = startPositions.Length -1;
 
-		//do special for first pos
-
-		Debug.Log("HO:"+songUIs[songUIs.Count-1]+" "+checkForSongListCounterOutOfRange(lastSong+1) );
+		//set song for last pos
 		songUIs[songUIs.Count-1].positionInSongList = checkForSongListCounterOutOfRange(lastSong+1);
 		songUIs[songUIs.Count-1].setSong(GameManager.instance.songs[checkForSongListCounterOutOfRange(lastSong+1)]);
 

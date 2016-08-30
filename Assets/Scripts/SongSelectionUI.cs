@@ -43,6 +43,8 @@ public class SongSelectionUI : MonoBehaviour {
 		scoreUI = transform.GetChild(3).GetComponent<Text>();
 		percentUI = transform.GetChild(4).GetComponent<Text>();
 		myAudio = GetComponent<AudioSource>();
+
+		Debug.Log(name+" "+transform.localScale.x);
 	}
 
 	// Update is called once per frame
@@ -50,8 +52,8 @@ public class SongSelectionUI : MonoBehaviour {
 		if(isMoving){
 			if(debugMe){
 				
-				Debug.Log(transform.localPosition);
-				//Debug.Log(transform.GetComponent<RectTransform>().localScale);
+				//Debug.Log(transform.localPosition);
+				Debug.Log(transform.GetComponent<RectTransform>().localScale);
 			}
 			timeCount+=Time.deltaTime;
 			transform.localPosition = new Vector3(
@@ -60,11 +62,11 @@ public class SongSelectionUI : MonoBehaviour {
 				moveStartPosition.z + (zCurve.Evaluate(timeCount/moveTime) * (targetPosition.z - moveStartPosition.z))
 			);
 
-//			transform.parent.localScale = new Vector3(
-//				moveStartScale.x + (xCurve.Evaluate(timeCount/moveTime) * (moveTargetScale.x - moveStartScale.x)),
-//				moveStartScale.y + (yCurve.Evaluate(timeCount/moveTime) * (moveTargetScale.y - moveStartScale.y)),
-//				moveStartScale.z
-//			);
+			transform.localScale = new Vector3(
+				moveStartScale.x + (xCurve.Evaluate(timeCount/moveTime) * (moveTargetScale.x - moveStartScale.x)),
+				moveStartScale.y + (yCurve.Evaluate(timeCount/moveTime) * (moveTargetScale.y - moveStartScale.y)),
+				moveStartScale.z
+			);
 
 
 			if(Mathf.Abs(targetPosition.x - transform.localPosition.x) < .05f){
@@ -79,10 +81,12 @@ public class SongSelectionUI : MonoBehaviour {
 	public void startMoving(Vector3 start, Vector3 target, Vector3 startScale, Vector3 targetScale){
 		
 		if(debugMe){
-			Debug.Log("I am "+name+ " my pos is "+currentCarouselPosition+" move from "+start+" to "+target);
+			Debug.Log("I am "+name+ " my scale is "+moveStartScale+" scale to from "+startScale+" to "+targetScale);
 		}
 		moveStartPosition = start;
 		targetPosition = target;
+		moveStartScale = startScale;
+		moveTargetScale = targetScale;
 		isMoving = true;
 	}
 

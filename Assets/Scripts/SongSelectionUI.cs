@@ -43,8 +43,6 @@ public class SongSelectionUI : MonoBehaviour {
 		scoreUI = transform.GetChild(3).GetComponent<Text>();
 		percentUI = transform.GetChild(4).GetComponent<Text>();
 		myAudio = GetComponent<AudioSource>();
-
-		Debug.Log(name+" "+transform.localScale.x);
 	}
 
 	// Update is called once per frame
@@ -53,7 +51,7 @@ public class SongSelectionUI : MonoBehaviour {
 			if(debugMe){
 				
 				//Debug.Log(transform.localPosition);
-				Debug.Log(transform.GetComponent<RectTransform>().localScale);
+//				Debug.Log(transform.GetComponent<RectTransform>().localScale);
 			}
 			timeCount+=Time.deltaTime;
 			transform.localPosition = new Vector3(
@@ -70,7 +68,7 @@ public class SongSelectionUI : MonoBehaviour {
 
 
 			if(Mathf.Abs(targetPosition.x - transform.localPosition.x) < .05f){
-				if(debugMe){Debug.Log(name+"STOP"+transform.localPosition);}
+//				if(debugMe){Debug.Log(name+"STOP"+transform.localPosition);}
 				stopMoving();
 			}
 		}
@@ -81,7 +79,7 @@ public class SongSelectionUI : MonoBehaviour {
 	public void startMoving(Vector3 start, Vector3 target, Vector3 startScale, Vector3 targetScale){
 		
 		if(debugMe){
-			Debug.Log("I am "+name+ " my scale is "+moveStartScale+" scale to from "+startScale+" to "+targetScale);
+//			Debug.Log("I am "+name+ " my scale is "+moveStartScale+" scale to from "+startScale+" to "+targetScale);
 		}
 		moveStartPosition = start;
 		targetPosition = target;
@@ -93,6 +91,10 @@ public class SongSelectionUI : MonoBehaviour {
 	void stopMoving(){
 		isMoving = false;
 		timeCount = 0;
+	}
+
+	public void refreshUI(){
+		setSong(currentSong);
 	}
 
 	public void setSong(SongData newData){

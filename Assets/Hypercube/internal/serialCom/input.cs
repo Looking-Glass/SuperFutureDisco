@@ -23,6 +23,8 @@ namespace hypercube
             DontDestroyOnLoad(this.gameObject);
             //end singleton
 
+            frontScreen = backScreen = null;
+
             setupSerialComs();
         }
       
@@ -34,16 +36,16 @@ namespace hypercube
 
         const int maxTouchesPerScreen = 9;
 
-        public static touchScreenInputManager frontScreen = null;  //the front touchscreen
-        public static touchScreenInputManager backScreen = null;  //the back touchscreen
+        public static touchScreenInputManager frontScreen { get; private set; }  //the front touchscreen
+        public static touchScreenInputManager backScreen {get; private set; } //the back touchscreen
 
-        HashSet<touchscreenTarget> eventTargets = new HashSet<touchscreenTarget>();
+        static HashSet<touchscreenTarget> eventTargets = new HashSet<touchscreenTarget>();
         public static void _setTouchScreenTarget(touchscreenTarget t, bool addRemove)
         {
             if (addRemove)
-                instance.eventTargets.Add(t);
+                eventTargets.Add(t);
             else
-                instance.eventTargets.Remove(t);
+                eventTargets.Remove(t);
         }
 
         //use this instead of Start(),  that way we know we have our hardware settings info ready before we begin receiving data
@@ -60,29 +62,11 @@ namespace hypercube
 
 #if HYPERCUBE_INPUT
 
-            if (!d.hasKey("touchscreenResX") ||
-                !d.hasKey("touchscreenResY") ||
-                !d.hasKey("projectionCentimeterWidth") ||
-                !d.hasKey("projectionCentimeterHeight") ||
-                !d.hasKey("touchscreenCentimeterWidth") ||
-                !d.hasKey("touchscreenCentimeterHeight") ||
-                !d.hasKey("projectionCentimeterDepth")  //this one is necessary to keep the hypercube aspect ratio
-                )
-                Debug.LogWarning("Volume config file lacks touch screen hardware specs!"); //these must be manually entered, so we should warn if they are missing.
-
             if (frontScreen != null)
-            {
-                frontScreen.setTouchScreenDims(
-                    d.getValueAsFloat("touchscreenResX", 800f),
-                    d.getValueAsFloat("touchscreenResY", 480f),
-                    d.getValueAsFloat("projectionCentimeterWidth", 20f),
-                    d.getValueAsFloat("projectionCentimeterHeight", 12f),
-                    d.getValueAsFloat("touchscreenCentimeterWidth", 20f),
-                    d.getValueAsFloat("touchscreenCentimetersHeight", 12f),
-                    d.getValueAsFloat("centimeterWidthOffset", 0f),
-                    d.getValueAsFloat("centimeterHeightOffset", 0f)
-                    );
-            }
+                frontScreen.setTouchScreenDims(d);
+
+            if (backScreen != null)
+                frontScreen.setTouchScreenDims(d);
 #endif
         }
 
@@ -104,17 +88,17 @@ namespace hypercube
 
             if (t.state == touch.activationState.TOUCHDOWN)
             {
-                    foreach(touchscreenTarget target in instance.eventTargets)
+                    foreach(touchscreenTarget target in eventTargets)
                         target.onTouchDown(t);
             }
             else if (t.state == touch.activationState.ACTIVE)
             {
-                foreach (touchscreenTarget target in instance.eventTargets)
+                foreach (touchscreenTarget target in eventTargets)
                     target.onTouchMoved(t);
             }
             else if (t.state == touch.activationState.TOUCHUP)
             {
-                foreach (touchscreenTarget target in instance.eventTargets)
+                foreach (touchscreenTarget target in eventTargets)
                     target.onTouchUp(t);
             }               
         }
@@ -132,7 +116,7 @@ namespace hypercube
 
             for (int i = 0; i < names.Length; i++)
             {
-                if (names[i].StartsWith("COM"))
+                if (names[i].StartsWith("COM") || names[i].Contains("usbmodem"))
                 {
                     frontComName = names[i];
                 }
@@ -145,34 +129,6 @@ namespace hypercube
                 backScreen = new touchScreenInputManager("Back Touch Screen", addSerialPortInput(frontComName), false);
         }
 
-
-
-        static string[] getPortNames()
-        {
-#if UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
-            return System.IO.Ports.SerialPort.GetPortNames();
-#else
-            int p = (int)Environment.OSVersion.Platform;
-            List<string> serial_ports = new List<string>();
-
-
-			string []ttys = new string[0];
-            // Are we on Unix?
-            if (p == 4 || p == 128 || p == 6)
-            {
-                ttys = System.IO.Directory.GetFiles("/dev/", "tty.*");
-                foreach (string dev in ttys)
-                {
-                    if (dev.StartsWith("/dev/tty.*"))
-                        serial_ports.Add(dev);
-                }
-            }
-
-            return ttys;
-#endif
-        }
-        
-
         void Update()
         {
             if (frontScreen != null && frontScreen.serial.enabled)
@@ -181,19 +137,30 @@ namespace hypercube
                 frontScreen.update(debug);
         }
 
-  
-
-        static castMesh[] getCastMeshes()
+        static string[] getPortNames()
         {
-            List<castMesh> outcams = new List<castMesh>();
+#if UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
+            return System.IO.Ports.SerialPort.GetPortNames();
+#else
+            //this code is from http://answers.unity3d.com/questions/643078/serialportsgetportnames-error.html
+            int p = (int)Environment.OSVersion.Platform;
+            List<string> serial_ports = new List<string>();
 
-            castMesh[] cameras = GameObject.FindObjectsOfType<castMesh>();
-            foreach (castMesh ca in cameras)
+            // Are we on Unix?
+            if (p == 4 || p == 128 || p == 6)
             {
-                    outcams.Add(ca);
+                string[] ttys = System.IO.Directory.GetFiles("/dev/", "tty.*");  //In the GetPortNames function, it looks for ports that begin with "/dev/ttyS" or "/dev/ttyUSB" . However, OS X ports begin with "/dev/tty.".
+                foreach (string dev in ttys)
+                {
+                    if (dev.StartsWith("/dev/tty."))
+                        serial_ports.Add(dev);
+                }
             }
-            return outcams.ToArray();
+
+            return serial_ports.ToArray();
+#endif
         }
+       
 
         SerialController addSerialPortInput(string comName)
         {
@@ -205,6 +172,18 @@ namespace hypercube
             sc.maxFailuresAllowed = maxAllowedFailure;
             sc.enabled = true;
             return sc;
+        }
+
+        static castMesh[] getCastMeshes()
+        {
+            List<castMesh> outcams = new List<castMesh>();
+
+            castMesh[] cameras = GameObject.FindObjectsOfType<castMesh>();
+            foreach (castMesh ca in cameras)
+            {
+                outcams.Add(ca);
+            }
+            return outcams.ToArray();
         }
 
         public static bool isHardwareReady() //can the touchscreen hardware get/send commands?
@@ -237,8 +216,6 @@ namespace hypercube
         }
 */
    
-
-
 #else //We use HYPERCUBE_INPUT because I have to choose between this odd warning below, or immediately throwing a compile error for new users who happen to have the wrong settings (IO.Ports is not included in .Net 2.0 Subset).  This solution is odd, but much better than immediately failing to compile.
     
         void setupSerialComs()

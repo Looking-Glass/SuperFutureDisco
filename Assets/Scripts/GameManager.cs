@@ -1,8 +1,11 @@
 ﻿using UnityEngine;
+using UnityEngine.UI;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using SonicBloom.Koreo;
 using InControl;
+using SonicBloom.Koreo.Players;
 
 public class GameManager : MonoBehaviour {
 
@@ -24,6 +27,7 @@ public class GameManager : MonoBehaviour {
 
 	public Transform cubeCamera;
 	public ObstacleManager om {get; private set;}
+	public ScoreManager sm {get;private set;}
 	public float universalOffset {get; private set;}
 
 	public List<Material> colors;
@@ -41,7 +45,7 @@ public class GameManager : MonoBehaviour {
 
 	public Koreographer myKoreor;
 	public GameObject Player;
-
+	public SongCarousel myCarousel;
 
 	public GameObject [] titleObjects;
 	public GameObject [] menuObjects;
@@ -55,9 +59,23 @@ public class GameManager : MonoBehaviour {
 	public InputDevice inputDevice {get; private set;}
 
 	public float sphereTimeToShipFromBackOfScreen;
-
+	public SongData currentSong;
 
 	public GameState currentState {get; private set;}
+
+	float songCountdownTimer;
+
+	public Text resultScreenText;
+
+	int score;
+	int percent;
+	int oldScore;
+	int oldPercent;
+
+
+
+
+
 	public void setState(GameState newState){
 
 		sfxAudio.Stop();
@@ -77,17 +95,23 @@ public class GameManager : MonoBehaviour {
 			StateUpdate = titleUpdate;
 			break;
 		case GameState.Menu:
+			
 			turnStuffOnOff(titleObjects,false);
+
 			turnStuffOnOff(menuObjects,true);
 			turnStuffOnOff(playingObjects,false);
 			turnStuffOnOff(resultsObjects,false);
 			StateUpdate = menuUpdate;
 			break;
 		case GameState.Playing:
-			
+			sm.reset();
 			turnStuffOnOff(titleObjects,false);
-			turnStuffOnOff(menuObjects,false);
+
 			turnStuffOnOff(playingObjects,true);
+			currentSong = myCarousel.getCurrentSelection();
+
+			myKoreor.GetComponent<SimpleMusicPlayer>().LoadSong(currentSong.koreography,0,false);
+			turnStuffOnOff(menuObjects,false);
 			turnStuffOnOff(resultsObjects,false);
 			StartCoroutine("setUpKoreoStats");
 			if(moviePlane!=null){
@@ -99,6 +123,16 @@ public class GameManager : MonoBehaviour {
 
 			break;
 		case GameState.Result:
+			om.clearAllObstacles();
+			score = sm.getFinalScore();
+			Debug.Log(sm.getNotesHitPercent());
+			percent = sm.getNotesHitPercent();
+			Debug.Log(percent);
+			oldScore = PlayerPrefs.GetInt(currentSong.songName+"Score");
+			oldPercent = PlayerPrefs.GetInt(currentSong.songName+"Percent");
+			resultScreenText.text = "Your score: "+score+"\nHigh Score: "+score+
+				"\nYour hit percent: "+percent+"\nHigh hit percent: "+oldPercent;
+			//play sound effect like cheering for end of song
 			turnStuffOnOff(titleObjects,false);
 			turnStuffOnOff(menuObjects,false);
 			turnStuffOnOff(playingObjects,false);
@@ -111,13 +145,6 @@ public class GameManager : MonoBehaviour {
 		currentState = newState;
 	}
 
-	void Update(){
-		inputDevice = InputManager.ActiveDevice;
-		if(StateUpdate != null){
-			StateUpdate();
-		}
-	}
-
 	void turnStuffOnOff(GameObject [] stuff, bool onOff){
 		if(stuff.Length >0){
 			foreach(GameObject g in stuff){
@@ -128,6 +155,26 @@ public class GameManager : MonoBehaviour {
 		}
 
 	}
+
+
+	/// <summary>
+	/// 
+	/// UPDATE AND VARIOUS STATE UPDATE FUNCTIONS
+	/// 
+	/// </summary>
+
+
+	void Update(){
+		if(Input.GetKey(KeyCode.Escape)){
+			Application.Quit();
+		}
+		inputDevice = InputManager.ActiveDevice;
+		if(StateUpdate != null){
+			StateUpdate();
+		}
+	}
+
+
 
 	void titleUpdate(){
 		
@@ -153,15 +200,40 @@ public class GameManager : MonoBehaviour {
 
 
 		}
+		if(songCountdownTimer <=0){
+			setState(GameState.Result);
+		}
+		songCountdownTimer -= Time.deltaTime;
+
 	}
 
 	void resultUpdate(){
-		if(Input.GetKeyDown(KeyCode.Escape) || Input.GetKeyDown(KeyCode.Space)){
+		if(Input.GetKeyDown(KeyCode.Escape) || Input.GetKeyDown(KeyCode.Space) || inputDevice.Action1.WasPressed || inputDevice.Command.WasPressed){
+			
+			if(score > oldScore){
+				Debug.Log("newHiScore");
+				PlayerPrefs.SetInt(currentSong.songName+"Score",score);
+			}
+			if(percent > oldPercent){
+				Debug.Log("newHiPercent");
+				PlayerPrefs.SetInt(currentSong.songName+"Percent",percent);
+			}
+			refreshSongScoreData();
+			myCarousel.refreshCarousel();
 			setState(GameState.Title);
+
 		}
 	}
 
+
+	/// <summary>
+	/// 
+	/// AWAKE AND TITLE ANIMATION COROUTINES
+	/// 
+	/// </summary>
+
 	void Awake(){
+		Cursor.visible = false;
 		//moviePlane = GameObject.Find("MoviePlane");
 		originalColors = new List<Material>();
 		for(int i=0; i<colors.Count;i++){
@@ -174,6 +246,7 @@ public class GameManager : MonoBehaviour {
 			cubeCamera = GameObject.Find("HYPERCUBE").transform;
 		}
 		om = GetComponent<ObstacleManager>();
+		sm = GetComponent<ScoreManager>();
 		//START THE MUSIC HERE!!!
 		//Invoke("startMusic",universalOffset);
 
@@ -181,7 +254,13 @@ public class GameManager : MonoBehaviour {
 		setState(GameState.Title);
 		//GameObject.Find("Super1").GetComponent<TitleText>().startAnimation(Time.time, 2);
 	//	playTitleAnimation();
+
+
+		//try to load high scores
+		refreshSongScoreData();
+
 	}
+
 
 	IEnumerator playTitleAnimation(){
 		superTitleCover.transform.localPosition = new Vector3(superTitleCover.GetComponent<TitleText>().positionXCurve.Evaluate(0), superTitleCover.GetComponent<TitleText>().positionYCurve.Evaluate(0),0.1f);
@@ -190,7 +269,7 @@ public class GameManager : MonoBehaviour {
 		GameObject.Find("Press Space").transform.eulerAngles = new Vector3(90,0,0);
 		//Invoke("revealSuper",3.2f);
 		//Invoke("showSpace",3.75f);
-		mainAudio.clip = Resources.Load("Audio/Music/shortSting") as AudioClip;
+		mainAudio.clip = Resources.Load("Audio/shortSting") as AudioClip;
 //		Debug.Log("weplay1");
 		mainAudio.Play();
 		foreach(TitleText t in GameObject.Find("BottomPart").GetComponentsInChildren<TitleText>()){
@@ -220,19 +299,35 @@ public class GameManager : MonoBehaviour {
 		mainAudio.Play();
 	}
 
+	/// <summary>
+	/// 
+	/// SET UP THE SELECTED SONG AND BEGIN PLAYING IT
+	/// 
+	/// </summary>
+
+
 	IEnumerator setUpKoreoStats(){
 		int maxY=0;
 		int minY=0;
 		bool useFloat = false;
-		Koreography myKoreo = myKoreor.GetKoreographyAtIndex(1);
 
-		int totalNotes = myKoreo.Tracks[0].GetAllEvents().Count;
+		int koreoTrackToUse = 0;
 
-		if(myKoreo.Tracks[1].GetAllEvents()[0].GetFloatValue() !=0){
+
+		Koreography myKoreo = currentSong.koreography;
+		songCountdownTimer = 90;//currentSong.audioClip.length + universalOffset;
+		if(!myKoreo.Tracks[koreoTrackToUse].name.Contains("elody")){
+			koreoTrackToUse = 1;
+		}
+		int totalNotes = myKoreo.Tracks[koreoTrackToUse].GetAllEvents().Count;
+		Debug.Log("totnot "+totalNotes); 
+
+		if(myKoreo.Tracks[koreoTrackToUse].GetAllEvents()[0].GetFloatValue() !=0){
 			useFloat = true;
 		}
 //		Debug.Log(useFloat);
-		foreach(KoreographyEvent ke in myKoreo.Tracks[1].GetAllEvents()){
+
+		foreach(KoreographyEvent ke in myKoreo.Tracks[koreoTrackToUse].GetAllEvents()){
 			if(useFloat){
 				if(minY==0){
 					maxY = Mathf.RoundToInt(ke.GetFloatValue());
@@ -259,11 +354,13 @@ public class GameManager : MonoBehaviour {
 				}
 			}
 		}
-		
+//		Debug.Log("HAYY"+minY + " "+maxY);
 		om.maxNote = maxY;
 		om.minNote = minY;
 //		Debug.Log("OH "+minY + " "+maxY);
-		GetComponent<ScoreManager>().totalNotes = totalNotes;
+		sm.totalNotes = totalNotes;
+		Debug.Log("totnot2 "+sm.totalNotes); 
+		sm.notesHit = 0;
 		om.setYRange();
 		//mainAudio.clip = Resources.Load("Audio/Music/Overcast") as AudioClip;
 		yield return new WaitForSeconds(universalOffset);
@@ -274,6 +371,13 @@ public class GameManager : MonoBehaviour {
 		yield return null;
 
 	}
+
+
+	/// <summary>
+	/// 
+	/// OTHER FUNCTIONS
+	/// 
+	/// </summary>
 
 	public void startParty(){
 		om.startParty();
@@ -295,6 +399,25 @@ public class GameManager : MonoBehaviour {
 		playerTrail.SetActive(false);
 		om.resetColors();
 		//moviePlane.GetComponent<MeshRenderer>().enabled = false;
+	}
+
+	public void resetHighScores(){
+		for(int i =0; i<songs.Length;i++){
+			PlayerPrefs.SetInt(songs[i].songName+"Score",0);
+			PlayerPrefs.SetInt(songs[i].songName+"Percent",0);
+		}
+	}
+
+	public void refreshSongScoreData(){
+		for(int i=0; i<songs.Length; i++){
+			try{
+				songs[i].highScore = PlayerPrefs.GetInt(songs[i].songName+"Score");
+				songs[i].highHitPercent = PlayerPrefs.GetInt(songs[i].songName+"Percent");
+			} catch(Exception e){
+				print("no saved score found for "+songs[i].songName);
+			}
+
+		}
 	}
 
 }

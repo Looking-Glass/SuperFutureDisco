@@ -175,7 +175,7 @@ public class Player : MonoBehaviour {
 	}
 
 	void bounceToBeat(BeatEvent be){
-		Debug.Log("BOUNCE GET");
+//		Debug.Log("BOUNCE GET");
 		//if(GameManager.instance.inputDevice.LeftStickX > -1 * stickThreshold)
 		StartCoroutine("bounce");
 	}

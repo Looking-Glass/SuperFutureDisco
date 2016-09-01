@@ -18,9 +18,11 @@ public class ScoreManager : MonoBehaviour {
 	float partyCountdown;
 	int currentPartyLevel;
 
-	int penalty = 2;
+	int penaltyForMiss = 3;
+	int penaltyForWrongColor =2;
 
 	public int totalNotes;
+	public int notesHit;
 
 
 
@@ -86,6 +88,7 @@ public class ScoreManager : MonoBehaviour {
 	}
 
 	public void reset(){
+		scoreText.text ="0";
 		playerScore = 0;
 		comboMultiplier = 1;
 		foreach (Slider s in levelSliders){
@@ -114,6 +117,7 @@ public class ScoreManager : MonoBehaviour {
 
 	}
 
+	//here's where we do stuff when a player hits an obstacle.
 	void hitObs(PlayerHitObstacleEvent e){
 		GameObject f;
 		//Instantiate a text notification object
@@ -125,32 +129,44 @@ public class ScoreManager : MonoBehaviour {
 			f = Instantiate(Resources.Load("Prefabs/TextFeedback"),new Vector3(e.obstacleX, e.obstacleY+1,-4.68f),Quaternion.identity) as GameObject;
 			f.GetComponent<TextFeedback>().goUp = true;
 		}
-
+			
 		f.transform.SetParent(canvas);
+
+		//if we're not in party mode...
 		if(currentState == ScoreState.Normal){
 			
-	//		Debug.Log(e.obstacleX+" "+ e.obstacleY);
-
+			//we hit it correctly, good job
 			if(e.playerColor == e.obstacleColor){
 				GameObject p;
 				p = Instantiate(Resources.Load("Prefabs/HitParticleCircle"),new Vector3(e.obstacleX, e.obstacleY,e.obstacle.transform.position.z),Quaternion.identity) as GameObject;
 				p.GetComponent<Renderer>().material = textMaterials[e.obstacleColor];
-				int scoreToAdd = baseScoreForHit * comboMultiplier;
-				updateScore(scoreToAdd);
-				f.GetComponent<Text>().material = textMaterials[e.obstacleColor];
-				f.GetComponent<Text>().text = "+"+scoreToAdd.ToString();
+
+				if(Time.time - GameManager.instance.om.lastSpawnTime > .05f){
+					int scoreToAdd = baseScoreForHit * comboMultiplier;
+					updateScore(scoreToAdd);
+					f.GetComponent<Text>().material = textMaterials[e.obstacleColor];
+					f.GetComponent<Text>().text = "+"+scoreToAdd.ToString();
+					comboMultiplier +=1;
+				} else {
+					f.GetComponent<Text>().text = "";
+				}
 				levelSliders[e.obstacleColor].value += 1;
-				comboMultiplier +=1;
+				notesHit++;
+				Debug.Log("notehit! "+notesHit);
 
 
-
+			//wrong color!
 			} else {
+				
+//				Debug.Log(comboMultiplier);
 				f.GetComponent<Text>().material = Resources.Load("Materials/text_red") as Material;
 				f.GetComponent<Text>().text = "X";
 				f.GetComponent<Text>().fontStyle = FontStyle.Bold;
-				levelSliders[e.obstacleColor].value -= penalty;
+				//lower bar of player's current color
+				levelSliders[GameManager.instance.Player.GetComponent<Player>().currentColor].value -= penaltyForWrongColor;
 				comboMultiplier = 1;
 			}
+		//in party mode, no penalties
 		} else {
 			GameObject p;
 			p = Instantiate(Resources.Load("Prefabs/HitParticleCircle"),new Vector3(e.obstacleX, e.obstacleY,e.obstacle.transform.position.z),Quaternion.identity) as GameObject;
@@ -159,8 +175,8 @@ public class ScoreManager : MonoBehaviour {
 			updateScore(scoreToAdd);
 			f.GetComponent<Text>().material = textMaterials[e.obstacleColor];
 			f.GetComponent<Text>().text = "+"+scoreToAdd.ToString();
-
-			comboMultiplier +=1;
+			notesHit++;
+			//comboMultiplier +=1;
 		}
 
 
@@ -172,6 +188,7 @@ public class ScoreManager : MonoBehaviour {
 
 	}
 
+	//completely missed obstacle
 	void missedObs(ObstacleMissedEvent e){
 		if(currentState == ScoreState.Normal){
 			GameObject f = Instantiate(Resources.Load("Prefabs/TextFeedback"),new Vector3(e.obstacleX,e.obstacleY+1,-4.68f),Quaternion.identity) as GameObject;
@@ -180,7 +197,8 @@ public class ScoreManager : MonoBehaviour {
 			f.GetComponent<Text>().text = "X";
 			f.GetComponent<Text>().fontStyle = FontStyle.Bold;
 			comboMultiplier = 1;
-			levelSliders[e.obstacle.currentColor].value -= penalty;
+			//lower bar of missed color
+			levelSliders[e.obstacle.currentColor].value -= penaltyForMiss;
 		}
 	}
 
@@ -197,6 +215,14 @@ public class ScoreManager : MonoBehaviour {
 		}
 	}
 
+	public int getFinalScore(){
+		return playerScore;
+	}
+
+	public int getNotesHitPercent(){
+		Debug.Log(totalNotes+" is tot, we hit "+notesHit);
+		return Mathf.RoundToInt(100* (float)notesHit/(float)totalNotes);
+	}
 
 
 

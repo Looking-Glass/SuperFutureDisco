@@ -12,15 +12,17 @@ public class touchScreenInputManager  : streamedInputManager
     public uint touchCount { get; private set; }
 
     //external interface..
-    public Vector2 averagePos { get; private set; } //0-1
-    public Vector2 averageDiff { get; private set; } //0-1
-    public Vector2 averageDist { get; private set; } //in centimeters
+    public Vector2 averagePos { get; private set; } //The 0-1 normalized average position of all touches
+    public Vector2 averageDiff { get; private set; } //The normalized distance the touch moved 0-1
+    public Vector2 averageDist { get; private set; } //The distance the touch moved, in Centimeters
 
 
     public float twist { get; private set; }
     public float pinch { get; private set; }//0-1
     public float touchSize { get; private set; } //0-1
     public float touchSizeCm { get; private set; } //the ave distance between the farthest 2 touches in 1 axis, in centimeters
+
+    public float firmwareVersion { get; private set; }
     
 
 #if HYPERCUBE_INPUT
@@ -63,14 +65,13 @@ public class touchScreenInputManager  : streamedInputManager
     float screenResY = 450f;
     float projectionWidth = 20f; //the physical size of the projection, in centimeters
     float projectionHeight = 12f;
-    float touchScreenWidth = 0f; // physical size of the touchscreen, in centimeters
-    float touchScreenHeight = 0f;
-
-    float widthOffset = 0f; //any difference between the physical centers of the touchscreen and projection
-    float heightOffset = 0f;  //set as touchScreen - projection
-
-    float touchAspectX = 1f; //screenSizeX / touchScreenSizeX
-    float touchAspectY = 1f;
+    float projectionDepth = 20f;
+    float touchScreenWidth = 20f; // physical size of the touchscreen, in centimeters
+    float touchScreenHeight = 12f;
+    float topLimit = 0f;
+    float bottomLimit = 1f;
+    float leftLimit = 0f;
+    float rightLimit = 1f;
 
     static readonly byte[] emptyByte = new byte[] { 0 };
 
@@ -79,6 +80,7 @@ public class touchScreenInputManager  : streamedInputManager
 
     public touchScreenInputManager(string _deviceName, SerialController _serial, bool _isFrontTouchScreen) : base(_serial, new byte[]{255,255}, 1024)
     {
+        firmwareVersion = -9999f;
         touches = new touch[0];
         touchCount = 0;
         pinch = 1f;
@@ -100,42 +102,60 @@ public class touchScreenInputManager  : streamedInputManager
         }
     }
 
-    public void setTouchScreenDims(float _resX, float _resY, float _projectionWidth, float _projectionHeight, float _touchScreenWidth, float _touchScreenHeight, float _widthOffset, float _heightOffset)
-    {
-        screenResX = _resX;
-        screenResY = _resY;
-        projectionWidth = _projectionWidth;
-        projectionHeight = _projectionHeight;
-        touchScreenWidth = _touchScreenWidth;
-        touchScreenHeight = _touchScreenHeight;
-        widthOffset = _widthOffset;
-        heightOffset = _heightOffset;
 
-        touchAspectX =  touchScreenWidth / projectionWidth;
-        touchAspectY = projectionHeight / touchScreenHeight;
+
+    public void setTouchScreenDims(dataFileDict d)
+    {
+        if (d == null)
+            return;
+
+        if (!d.hasKey("touchScreenResX") ||
+            !d.hasKey("touchScreenResY") ||
+            !d.hasKey("projectionCentimeterWidth") ||
+            !d.hasKey("projectionCentimeterHeight") ||
+            !d.hasKey("projectionCentimeterDepth") ||
+            !d.hasKey("touchScreenMapTop") ||
+            !d.hasKey("touchScreenMapBottom") ||
+            !d.hasKey("touchScreenMapLeft") ||
+            !d.hasKey("touchScreenMapRight")  //this one is necessary to keep the hypercube aspect ratio
+            )
+            Debug.LogWarning("Volume config file lacks touch screen hardware specs!"); //these must be manually entered, so we should warn if they are missing.
+
+        screenResX = d.getValueAsFloat("touchScreenResX", screenResX);
+        screenResY = d.getValueAsFloat("touchScreenResY", screenResY);
+        projectionWidth = d.getValueAsFloat("projectionCentimeterWidth", projectionWidth);
+        projectionHeight = d.getValueAsFloat("projectionCentimeterHeight", projectionHeight);
+        projectionDepth = d.getValueAsFloat("projectionCentimeterDepth", projectionDepth);
+
+        topLimit = d.getValueAsFloat("touchScreenMapTop", topLimit); //use averages.
+        bottomLimit = d.getValueAsFloat("touchScreenMapBottom", bottomLimit);
+        leftLimit = d.getValueAsFloat("touchScreenMapLeft", leftLimit);
+        rightLimit = d.getValueAsFloat("touchScreenMapRight", rightLimit);
+
+        touchScreenWidth = projectionWidth * (1f/(rightLimit - leftLimit));
+        touchScreenHeight = projectionHeight * (1f/(topLimit - bottomLimit));
     }
 
-    //used between processData and postProcessData
-    float averageNormalizedX = 0f;
-    float averageNormalizedY = 0f;
+
 
     public override void update(bool debug)
     {
+        
         string data = serial.ReadSerialMessage();
-
-        bool hadData = false;
-
-        averageNormalizedX = 0f;
-        averageNormalizedY = 0f;
         while (data != null)
         {
-            hadData = true;
 
             if (debug)
                 Debug.Log(deviceName +": "+ data);
 
             if (serial.readDataAsString)
             {
+                if (data.StartsWith("firmwareVersion:"))
+                {
+                    string[] toks = data.Split(':');
+                    firmwareVersion = dataFileDict.stringToFloat(toks[1], firmwareVersion);
+                }
+
                 if (data == "init:done" || data.Contains("init:done"))
                 {
                     serial.readDataAsString = false; //start capturing data
@@ -150,8 +170,7 @@ public class touchScreenInputManager  : streamedInputManager
             data = serial.ReadSerialMessage();
         }
 
-        if (hadData)
-            postProcessData();
+        postProcessData();
     }
 
 
@@ -183,14 +202,19 @@ public class touchScreenInputManager  : streamedInputManager
             interfaces[i].active = false;
         }     
 
+
         float x = 0;
         float y = 0;
+        uint iX = 0;
+        uint iY = 0;
 
         for (int i = 1; i < dataChunk.Length; i= i + 5) //start at 1 and jump 5 each time.
         {
             int id = dataChunk[i];
-            x = (float)System.BitConverter.ToUInt16(dataChunk, i + 1);
-            y = (float)System.BitConverter.ToUInt16(dataChunk, i + 3);
+            iX = System.BitConverter.ToUInt16(dataChunk, i + 1);
+            iY = System.BitConverter.ToUInt16(dataChunk, i + 3);
+            x = (float)iX;
+            y = (float)iY;
 
             //sometimes the hardware sends us funky data.
             //if the stats are funky, throw it out.
@@ -225,37 +249,30 @@ public class touchScreenInputManager  : streamedInputManager
        
             interfaces[touchIdMap[id]].active = true;
 
-            interfaces[touchIdMap[id]].normalizedPos.x =
-                touchAspectX * ((x / screenResX)  //mapping if the projection is centered with the touchscreen (including the * touchAspectX)
-                + (widthOffset/touchScreenWidth))  //physical offset between the center of the touchscreen and the projection
-                ;
-            interfaces[touchIdMap[id]].normalizedPos.y = 
-                ((y / screenResY) 
-                +(heightOffset / touchScreenHeight)) * touchAspectY
-                ;
+            interfaces[touchIdMap[id]].rawTouchScreenX = (int)iX;
+            interfaces[touchIdMap[id]].rawTouchScreenY = (int)iY;
+
+            //set the normalized x/y to the touchscreen limits
+            mapToRange(x/screenResX, y/screenResY, topLimit, rightLimit, bottomLimit, leftLimit, 
+                out interfaces[touchIdMap[id]].normalizedPos.x, out interfaces[touchIdMap[id]].normalizedPos.y); 
 
             interfaces[touchIdMap[id]].physicalPos.x = (x / screenResX) * touchScreenWidth;
             interfaces[touchIdMap[id]].physicalPos.y = (y / screenResY) * touchScreenHeight;
-
-            averageNormalizedX += interfaces[touchIdMap[id]].normalizedPos.x;
-            averageNormalizedY += interfaces[touchIdMap[id]].normalizedPos.y;
         }
 
+    }
+
+    void postProcessData()
+    {
         touchCount = 0;
         for (int k = 0; k < maxTouches; k++)
         {
             if (interfaces[touchIdMap[k]].active)
                 touchCount++;
         }
-    }
 
-    void postProcessData()
-    {
-        if (touchCount == 0)
-            averagePos = Vector2.zero;
-        else
-            averagePos = new Vector2(averageNormalizedX / (float)touchCount, averageNormalizedX / (float)touchCount);
-
+        float averageNormalizedX = 0f;
+        float averageNormalizedY = 0f;
         float averageDiffX = 0f;
         float averageDiffY = 0f;
         float averageDistX = 0f;
@@ -268,20 +285,22 @@ public class touchScreenInputManager  : streamedInputManager
 
         touches = new touch[touchCount];
 
+        //main touches are a way for us to stabilize the twist and scale outputs by not hopping around different touches, instead trying to calculate the values from the same touches if possible
         bool updateMainTouches = false;
         if (touchCount > 1 && (mainTouchA == null || mainTouchB == null || mainTouchA.active == false || mainTouchB.active == false))
-            updateMainTouches = true;
+            updateMainTouches = true; 
 
         int t = 0;
         for (int i = 0; i < touchPoolSize; i++)
         {
-
             touchPool[i]._interface(interfaces[i]); //update and apply our new info to each touch.     
             if (interfaces[i].active)
             {
                 touches[t] = touchPool[i];//these are the touches that can be queried from hypercube.input.front.touches              
                 t++;
 
+                averageNormalizedX += touchPool[i].posX;
+                averageNormalizedY += touchPool[i].posY;
                 averageDiffX += touchPool[i].diffX;
                 averageDiffY += touchPool[i].diffY;
                 averageDistX += touchPool[i].distX;
@@ -309,15 +328,17 @@ public class touchScreenInputManager  : streamedInputManager
             lastTouchAngle = twist = 0f;
             mainTouchA = mainTouchB = null;
             if (touchCount == 0)
-                averageDiff = averageDist = Vector2.zero;
+                averagePos = averageDiff = averageDist = Vector2.zero;
             else //1 touch only.
             {
+                averagePos = new Vector2(touches[0].posX, touches[0].posY);
                 averageDiff = new Vector2(touches[0].diffX, touches[0].diffY);
                 averageDist = new Vector2(touches[0].distX, touches[0].distY);
             }          
         }
         else
         {
+            averagePos = new Vector2(averageNormalizedX / (float)touchCount, averageNormalizedX / (float)touchCount);
             averageDiff = new Vector2(averageDiffX / (float)touchCount, averageDiffY / (float)touchCount);
             averageDist = new Vector2(averageDistX / (float)touchCount, averageDistY / (float)touchCount);
 
@@ -367,18 +388,29 @@ public class touchScreenInputManager  : streamedInputManager
         }
 
         //finally, send off the events to touchScreenTargets.
-        foreach (touch tch in touches)
+        for (int i = 0; i < touchPoolSize; i++)
         {
-            input._processTouchScreenEvent(tch);
+            if (touchPool[i].state != touch.activationState.DESTROYED)
+            input._processTouchScreenEvent(touchPool[i]);
         }
     }
+#endif
 
-     static float angleBetweenPoints(Vector2 v1, Vector2 v2)
+    static float angleBetweenPoints(Vector2 v1, Vector2 v2)
     {      
         return Mathf.Atan2(v1.x - v2.x, v1.y - v2.y) * Mathf.Rad2Deg;
     }
 
-#endif
+     public static void mapToRange(float x, float y, float top, float right, float bottom, float left, out float outX, out float outY)
+     {
+         outX = map(x, left, right, 0f, 1.0f);
+         outY = map(y, bottom, top, 0f, 1.0f);
+     }
+     static float map(float s, float a1, float a2, float b1, float b2)
+     {
+         return b1 + (s - a1) * (b2 - b1) / (a2 - a1);
+     }
+
 }
 
 

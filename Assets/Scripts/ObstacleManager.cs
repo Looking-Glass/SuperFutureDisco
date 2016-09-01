@@ -8,7 +8,7 @@ public class ObstacleManager : MonoBehaviour {
 	bool canAdd;
 	float border = 1;
 
-	float lastSpawnTime;
+	public float lastSpawnTime {get; private set;}
 	int lastNote;
 	int lastColor;
 	Vector3 lastSpawnPos;

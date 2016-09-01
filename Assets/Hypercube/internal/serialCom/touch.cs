@@ -9,19 +9,16 @@ using System.Collections;
 namespace hypercube 
 {
 
+    //touchInterface is an internal class, used by the touchScreenManager to communicate with touches.
     public class touchInterface
     {        
         public bool active = false;
         public System.UInt16 _id = System.UInt16.MaxValue;
-        //public float normalizedX = 0f;
-        //public float normalizedY = 0f;
-        //public float physicalX = 0f;
-        //public float physicalY = 0f;
         public Vector2 normalizedPos;
         public Vector2 physicalPos;
 
-        //public float angleToAveragePos; //for calculating twist
-        //public float lastAngle;
+        public int rawTouchScreenX;
+        public int rawTouchScreenY;
 
         public float getDistance(touchInterface i)
         {
@@ -34,17 +31,10 @@ namespace hypercube
     }
 
     //Note that resolution dependent dims are not exposed.
-    //this is important because different devices will host different resolutions and all users of this API should create device independent software.
-    //all un-needed data has been abstracted from here for maximum compatibility among all types of Volume hardware
+    //This is important because different devices will host different resolutions and all users of this API should create device independent software.
+    //Un-needed data has been abstracted away for maximum compatibility among all types of Volume hardware.
     public class touch
     {
-        public touch(bool _frontScreen)
-        {
-            frontScreen = _frontScreen;
-            _posX = _posY = physicalPos.x = physicalPos.y = _diffX = _diffY = _distX = _distY = 0;
-            state = activationState.DESTROYED;
-        }
-
         public readonly bool frontScreen;
         public System.UInt16 id { get; private set; }
 
@@ -57,15 +47,22 @@ namespace hypercube
         }
        public activationState state { get; private set; }
 
-        private float _posX; public float posX { get { if (activeCheck()) return _posX; return 0f; } } //0-1
-        private float _posY; public float posY { get { if (activeCheck()) return _posY; return 0f; } } //0-1
+        private float _posX; public float posX { get { if (activeCheck()) return _posX; return 0f; } } //0-1 normalized position of this touch
+        private float _posY; public float posY { get { if (activeCheck()) return _posY; return 0f; } } //0-1 normalized position of this touch
 
-        private float _diffX; public float diffX { get { if (activeCheck()) return _diffX; return 0f; } } //normalized relative movement this frame inside 0-1
+        private float _diffX; public float diffX { get { if (activeCheck()) return _diffX; return 0f; } } //normalized relative movement this frame inside 0-1 
         private float _diffY; public float diffY { get { if (activeCheck()) return _diffY; return 0f; } } //normalized relative movement this frame inside 0-1
 
-        private float _distX; public float distX { get { if (activeCheck()) return _distX; return 0f; } } //this accounts for physical distance that the touch traveled so that an application can react to the physical size of the movement irrelevant to the size of the touch screen (ie the value will be the same for a movement of 1 mm/1 frame regardless of the touch screen's internal resolution or physical size)
-        private float _distY; public float distY { get { if (activeCheck()) return _distY; return 0f; } } //this accounts for physical distance that the touch traveled so that an application can react to the physical size of the movement irrelevant to the size of the touch screen (ie the value will be the same for a movement of 1 mm/1 frame regardless of the touch screen's internal resolution or physical size)
+        private float _distX; public float distX { get { if (activeCheck()) return _distX; return 0f; } } //the physical distance that the touch traveled in Centimeters
+        private float _distY; public float distY { get { if (activeCheck()) return _distY; return 0f; } } //the physical distance that the touch traveled in Centimeters
 
+        public touch(bool _frontScreen)
+        {
+            frontScreen = _frontScreen;
+            _posX = _posY = physicalPos.x = physicalPos.y = _diffX = _diffY = _distX = _distY = 0;
+            touchScreenX = touchScreenY = 0;
+            state = activationState.DESTROYED;
+        }
         public Vector3 getWorldPos(hypercubeCamera c)
         {
             return c.transform.TransformPoint(getLocalPos());
@@ -87,6 +84,9 @@ namespace hypercube
 
         private Vector2 physicalPos;
 
+        private int touchScreenX; //these are the raw coordinates from the touchscreen.  They are not used in this class but stored here for convenience use with calibration tools.
+        private int touchScreenY;
+
 
         public float getPhysicalDistanceTo(touch t) 
         { 
@@ -99,8 +99,11 @@ namespace hypercube
         {
             i.normalizedPos.x = _posX;
             i.normalizedPos.y = _posY;
-         //   i.physicalPos.x =
+         
             i.physicalPos = physicalPos;
+            i.rawTouchScreenX = touchScreenX;
+            i.rawTouchScreenY = touchScreenY;
+
             i._id = id;
             if (state < activationState.ACTIVE)
                 i.active = false;
@@ -132,10 +135,12 @@ namespace hypercube
                 _distY = i.physicalPos.y - physicalPos.y;
             }
 
-
             _posX = i.normalizedPos.x;
             _posY = i.normalizedPos.y;
             physicalPos = i.physicalPos;
+
+            touchScreenX = i.rawTouchScreenX;
+            touchScreenY = i.rawTouchScreenY;
 
             id = i._id; //faster and easier to just set it all the time than check if this is a new touch or not.
         }
@@ -150,8 +155,11 @@ namespace hypercube
             state--;
              _diffX = _diffY = _distX = _distY = 0f;
 
-            if (state == activationState.DESTROYED)
-               touchDownTime = _posX = _posY = physicalPos.x = physicalPos.y = 0f;
+             if (state == activationState.DESTROYED)
+             {
+                 touchDownTime = _posX = _posY = physicalPos.x = physicalPos.y = 0f;
+                 touchScreenX = touchScreenY = 0;
+             }
         }
 
         bool activeCheck()
@@ -171,15 +179,12 @@ namespace hypercube
         }
         public Vector2 mapToRange(float top, float right, float bottom, float left)
         {
-            Vector2 position = new Vector2();
-            position.x = map(_posX, 0, 1.0f, left, right);
-            position.y = map(_posY, 0.0f, 1.0f, bottom, top);
-            return position;
+            float outX;
+            float outY;
+            touchScreenInputManager.mapToRange(_posX, _posY, top, right, bottom, left, out outX, out outY);
+            return new Vector2(outX, outY);
         }
-        static float map(float s, float a1, float a2, float b1, float b2)
-        {
-            return b1 + (s - a1) * (b2 - b1) / (a2 - a1);
-        }
+
 
     }
 

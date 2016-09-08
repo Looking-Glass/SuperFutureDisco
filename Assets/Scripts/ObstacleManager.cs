@@ -153,32 +153,36 @@ public class ObstacleManager : MonoBehaviour {
 
 			float maxX = .8f * cube.localScale.x;
 			float xRandomizer = .2f * cube.localScale.x;
-			float yRandomizer = .1f * cube.localScale.y;
+			//NOTE: decided against Y randomization so that levels could be more clearly designed with the feeling of going up/down with the music
+			//float yRandomizer = .1f * cube.localScale.y;
 
-			float genX = (maxX * (Time.time - lastSpawnTime))/2;
+			//The number at the end of the equation below determines how wide apart X spawns will be based on spawn time from previous target
+			//Lower means wider apart, most testing/dev was done with value of 2
+			float genX = (maxX * (Time.time - lastSpawnTime))/1.5f;
+
 
 			if(lastSpawnPos.x > 0){
 				genX *= -1;
 			}
 
+			//add randomness to x pos
 			genX += Random.Range(-1*xRandomizer,xRandomizer);
 
+			//always go towards the center
 			if(Time.time - lastSpawnTime <.1){
 				genX = .1f;
 			}
-
+				
 			x = lastSpawnPos.x + genX;
 
+			//check if out of bounds
 			if(Mathf.Abs(x) > cube.localScale.x/2-border){
 				x = Random.Range(-1 * cube.localScale.x/2 + border, cube.localScale.x/2 - border);
 			}
-
-			//
-			// GET Y
-			//
+				
+			// SET Y
 			note -= minNote;
 			y =  (-1 * cube.localScale.y/2) + (note/noteYRange * cubeYRange + .5f*border);// + Random.Range(-1*yRandomizer,yRandomizer);
-
 
 			if(Mathf.Abs(y) > cube.localScale.y/2){
 				if(y>0){
@@ -197,12 +201,11 @@ public class ObstacleManager : MonoBehaviour {
 
 	}
 
-	public void test(){
-
-		foreach(Obstacle o in obstacles){
-			o.setColor2(1);
-		}
-	}
+//	public void test(){
+//		foreach(Obstacle o in obstacles){
+//			o.setColor2(1);
+//		}
+//	}
 
 	public void startParty(){
 		inParty = true;

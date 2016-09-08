@@ -292,7 +292,7 @@ public class Player : MonoBehaviour {
 
 	void colorControls(){
 		if(Input.GetKeyDown(KeyCode.Q) || GameManager.instance.inputDevice.Action2.WasPressed){
-			setColor(0);
+			setColor(2);
 		}
 
 		if(Input.GetKeyDown(KeyCode.W) || GameManager.instance.inputDevice.Action4.WasPressed){
@@ -300,7 +300,7 @@ public class Player : MonoBehaviour {
 		}
 
 		if(Input.GetKeyDown(KeyCode.E) || GameManager.instance.inputDevice.Action3.WasPressed){
-			setColor(2);
+			setColor(0);
 		}
 
 		if(Input.GetKeyDown(KeyCode.A) || GameManager.instance.inputDevice.LeftBumper.WasPressed || GameManager.instance.inputDevice.LeftTrigger.WasPressed){

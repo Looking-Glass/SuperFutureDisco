@@ -72,9 +72,16 @@ public class GameManager : MonoBehaviour {
 	int oldScore;
 	int oldPercent;
 
+	public Text ResultsHeadline;
+	public Text ResultsPercent;
+	public Text ResultsPercentWord;
+	public Text ResultsScore;
+	public Text ResultsScoreWord;
+	public Text ResultsHighWord;
+	public Text ResultsHiPercent;
+	public Text ResultsHiScore;
 
-
-
+	bool firstLoadOfCarousel = true;
 
 	public void setState(GameState newState){
 
@@ -101,6 +108,11 @@ public class GameManager : MonoBehaviour {
 			turnStuffOnOff(menuObjects,true);
 			turnStuffOnOff(playingObjects,false);
 			turnStuffOnOff(resultsObjects,false);
+			if(firstLoadOfCarousel){
+				firstLoadOfCarousel = false;
+			} else {
+				myCarousel.playPreviewMusic();
+			}
 			StateUpdate = menuUpdate;
 			break;
 		case GameState.Playing:
@@ -123,20 +135,15 @@ public class GameManager : MonoBehaviour {
 
 			break;
 		case GameState.Result:
+			
 			om.clearAllObstacles();
-			score = sm.getFinalScore();
-			Debug.Log(sm.getNotesHitPercent());
-			percent = sm.getNotesHitPercent();
-			Debug.Log(percent);
-			oldScore = PlayerPrefs.GetInt(currentSong.songName+"Score");
-			oldPercent = PlayerPrefs.GetInt(currentSong.songName+"Percent");
-			resultScreenText.text = "Your score: "+score+"\nHigh Score: "+score+
-				"\nYour hit percent: "+percent+"\nHigh hit percent: "+oldPercent;
-			//play sound effect like cheering for end of song
+			setUpResultsText();
 			turnStuffOnOff(titleObjects,false);
 			turnStuffOnOff(menuObjects,false);
 			turnStuffOnOff(playingObjects,false);
 			turnStuffOnOff(resultsObjects,true);
+			mainAudio.clip = Resources.Load("Audio/results") as AudioClip;
+			mainAudio.Play();
 			StateUpdate = resultUpdate;
 			break;
 		default:
@@ -315,12 +322,11 @@ public class GameManager : MonoBehaviour {
 
 
 		Koreography myKoreo = currentSong.koreography;
-		songCountdownTimer = 90;//currentSong.audioClip.length + universalOffset;
+		songCountdownTimer = currentSong.audioClip.length + universalOffset/2;
 		if(!myKoreo.Tracks[koreoTrackToUse].name.Contains("elody")){
 			koreoTrackToUse = 1;
 		}
 		int totalNotes = myKoreo.Tracks[koreoTrackToUse].GetAllEvents().Count;
-		Debug.Log("totnot "+totalNotes); 
 
 		if(myKoreo.Tracks[koreoTrackToUse].GetAllEvents()[0].GetFloatValue() !=0){
 			useFloat = true;
@@ -359,7 +365,6 @@ public class GameManager : MonoBehaviour {
 		om.minNote = minY;
 //		Debug.Log("OH "+minY + " "+maxY);
 		sm.totalNotes = totalNotes;
-		Debug.Log("totnot2 "+sm.totalNotes); 
 		sm.notesHit = 0;
 		om.setYRange();
 		//mainAudio.clip = Resources.Load("Audio/Music/Overcast") as AudioClip;
@@ -418,6 +423,42 @@ public class GameManager : MonoBehaviour {
 			}
 
 		}
+	}
+
+	void setUpResultsText(){
+		score = sm.getFinalScore();
+		percent = sm.getNotesHitPercent();
+		oldScore = PlayerPrefs.GetInt(currentSong.songName+"Score");
+		oldPercent = PlayerPrefs.GetInt(currentSong.songName+"Percent");
+		ResultsPercent.text = percent+"%";
+		ResultsScore.text = score.ToString();
+		ResultsHiScore.text = oldScore.ToString();
+		ResultsHiPercent.text = oldPercent+"%";
+
+
+		if(percent <=65){
+			ResultsHeadline.text = "YOU  GOT  SOUL";
+		} else if(percent > 65 && percent <= 85){
+			ResultsHeadline.text = "GROOVY,  BABY";
+		} else if(percent > 85 && percent <=95){
+			ResultsHeadline.text = "DY-NO-MITE!";
+		} else {
+			ResultsHeadline.text = "DISCO   FEVER !";
+		}
+
+		if(score > oldScore){
+			ResultsScoreWord.text = "New High!";
+		} else {
+			ResultsScoreWord.text = "Score";
+		}
+
+		if(score < oldScore || percent < oldPercent){
+			ResultsHighWord.text = "High Score";
+		} else {
+			ResultsHighWord.text = "Previous Record";
+		}
+
+
 	}
 
 }

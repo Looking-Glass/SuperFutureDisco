@@ -18,8 +18,8 @@ public class ScoreManager : MonoBehaviour {
 	float partyCountdown;
 	int currentPartyLevel;
 
-	int penaltyForMiss = 3;
-	int penaltyForWrongColor =2;
+	int penaltyForMiss = 5;
+	int penaltyForWrongColor =3;
 
 	public int totalNotes;
 	public int notesHit;
@@ -141,18 +141,19 @@ public class ScoreManager : MonoBehaviour {
 				p = Instantiate(Resources.Load("Prefabs/HitParticleCircle"),new Vector3(e.obstacleX, e.obstacleY,e.obstacle.transform.position.z),Quaternion.identity) as GameObject;
 				p.GetComponent<Renderer>().material = textMaterials[e.obstacleColor];
 
+				//Ignore hold notes
 				if(Time.time - GameManager.instance.om.lastSpawnTime > .05f){
 					int scoreToAdd = baseScoreForHit * comboMultiplier;
 					updateScore(scoreToAdd);
 					f.GetComponent<Text>().material = textMaterials[e.obstacleColor];
 					f.GetComponent<Text>().text = "+"+scoreToAdd.ToString();
 					comboMultiplier +=1;
+					levelSliders[e.obstacleColor].value += 1;
 				} else {
 					f.GetComponent<Text>().text = "";
 				}
-				levelSliders[e.obstacleColor].value += 1;
+
 				notesHit++;
-				Debug.Log("notehit! "+notesHit);
 
 
 			//wrong color!
@@ -220,7 +221,6 @@ public class ScoreManager : MonoBehaviour {
 	}
 
 	public int getNotesHitPercent(){
-		Debug.Log(totalNotes+" is tot, we hit "+notesHit);
 		return Mathf.RoundToInt(100* (float)notesHit/(float)totalNotes);
 	}
 

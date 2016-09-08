@@ -18,6 +18,8 @@ public class SongCarousel : MonoBehaviour {
 
 	void Awake(){
 		canScroll = true;
+
+
 	}
 
 	// Use this for initialization
@@ -28,8 +30,9 @@ public class SongCarousel : MonoBehaviour {
 		}
 		setupPositionsAndScales();
 		initialPopulation();
-		StartCoroutine("playPreview");
+
 		myAudio = GetComponent<AudioSource>();
+		playPreviewMusic();
 	}
 	
 	// Update is called once per frame
@@ -72,7 +75,6 @@ public class SongCarousel : MonoBehaviour {
 	public SongData getCurrentSelection(){
 		foreach(SongSelectionUI songUI in songUIs){
 			if(songUI.currentCarouselPosition==3){
-				Debug.Log(songUI.currentSong.koreography.name);
 				return songUI.currentSong;
 			}
 		}
@@ -113,9 +115,15 @@ public class SongCarousel : MonoBehaviour {
 		}
 
 
+
+	}
+
+	public void playPreviewMusic(){
+		StartCoroutine("playPreview");
 	}
 
 	public void refreshCarousel(){
+		
 		initialPopulation();
 		foreach(SongSelectionUI songUI in songUIs){
 			songUI.refreshUI();

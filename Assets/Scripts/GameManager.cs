@@ -240,6 +240,7 @@ public class GameManager : MonoBehaviour {
 	/// </summary>
 
 	void Awake(){
+		Screen.SetResolution(1920,1080,true);
 		Cursor.visible = false;
 		//moviePlane = GameObject.Find("MoviePlane");
 		originalColors = new List<Material>();
